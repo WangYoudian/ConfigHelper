@@ -11,6 +11,17 @@ command_path() {
   command -v "${tool}" 2>/dev/null || true
 }
 
+append_line() {
+  local __var_name="$1"
+  local __line="$2"
+  printf -v "${__var_name}" '%s%s\n' "${!__var_name}" "${__line}"
+}
+
+path_contains_dir() {
+  local dir="$1"
+  [[ ":${PATH}:" == *":${dir}:"* ]]
+}
+
 append_managed_block() {
   local block_content="$1"
   local tmp_file
@@ -39,12 +50,14 @@ configure_env_for_detected_tools() {
   echo "[Phase 2] Detecting tools and preparing shell configuration..."
 
   local block=""
+  local seen_dirs=","
   local py_path
   local node_path
   local java_path
   local go_path
   local kubelet_path
   local conda_path
+  local dir_path
 
   conda_path="$(command_path conda)"
   py_path="$(command_path python3)"
@@ -54,38 +67,63 @@ configure_env_for_detected_tools() {
   kubelet_path="$(command_path kubelet)"
 
   if [[ -n "${conda_path}" ]]; then
-    block+=$'# conda detected\n'
-    block+=$'export PATH="'"$(dirname "${conda_path}")"':$PATH"\n'
+    dir_path="$(dirname "${conda_path}")"
+    append_line block "# conda detected"
+    if [[ "${seen_dirs}" != *",${dir_path},"* && ! path_contains_dir "${dir_path}" ]]; then
+      append_line block "export PATH=\"${dir_path}:\$PATH\""
+      seen_dirs+="${dir_path},"
+    fi
   fi
   if [[ -n "${py_path}" ]]; then
-    block+=$'# python3 detected\n'
-    block+=$'export PATH="'"$(dirname "${py_path}")"':$PATH"\n'
+    dir_path="$(dirname "${py_path}")"
+    append_line block "# python3 detected"
+    if [[ "${seen_dirs}" != *",${dir_path},"* && ! path_contains_dir "${dir_path}" ]]; then
+      append_line block "export PATH=\"${dir_path}:\$PATH\""
+      seen_dirs+="${dir_path},"
+    fi
   fi
   if [[ -n "${node_path}" ]]; then
-    block+=$'# node detected\n'
-    block+=$'export PATH="'"$(dirname "${node_path}")"':$PATH"\n'
+    dir_path="$(dirname "${node_path}")"
+    append_line block "# node detected"
+    if [[ "${seen_dirs}" != *",${dir_path},"* && ! path_contains_dir "${dir_path}" ]]; then
+      append_line block "export PATH=\"${dir_path}:\$PATH\""
+      seen_dirs+="${dir_path},"
+    fi
   fi
   if [[ -n "${java_path}" ]]; then
-    block+=$'# java detected\n'
-    block+=$'export PATH="'"$(dirname "${java_path}")"':$PATH"\n'
+    dir_path="$(dirname "${java_path}")"
+    append_line block "# java detected"
+    if [[ "${seen_dirs}" != *",${dir_path},"* && ! path_contains_dir "${dir_path}" ]]; then
+      append_line block "export PATH=\"${dir_path}:\$PATH\""
+      seen_dirs+="${dir_path},"
+    fi
   fi
   if [[ -n "${go_path}" ]]; then
-    block+=$'# go detected\n'
-    block+=$'export PATH="'"$(dirname "${go_path}")"':$PATH"\n'
-    block+=$'export GOPATH="${HOME}/go"\n'
-    block+=$'export PATH="${GOPATH}/bin:$PATH"\n'
+    dir_path="$(dirname "${go_path}")"
+    append_line block "# go detected"
+    if [[ "${seen_dirs}" != *",${dir_path},"* && ! path_contains_dir "${dir_path}" ]]; then
+      append_line block "export PATH=\"${dir_path}:\$PATH\""
+      seen_dirs+="${dir_path},"
+    fi
+    append_line block "export GOPATH=\"\${HOME}/go\""
+    append_line block "export PATH=\"\${GOPATH}/bin:\$PATH\""
   fi
   if [[ -n "${kubelet_path}" ]]; then
-    block+=$'# kubelet detected\n'
-    block+=$'export PATH="'"$(dirname "${kubelet_path}")"':$PATH"\n'
+    dir_path="$(dirname "${kubelet_path}")"
+    append_line block "# kubelet detected"
+    if [[ "${seen_dirs}" != *",${dir_path},"* && ! path_contains_dir "${dir_path}" ]]; then
+      append_line block "export PATH=\"${dir_path}:\$PATH\""
+      seen_dirs+="${dir_path},"
+    fi
   fi
 
   # Optional quality-of-life settings.
   if command -v npm >/dev/null 2>&1; then
-    block+=$'\n# npm completion (if available)\n'
-    block+=$'if command -v npm >/dev/null 2>&1; then\n'
-    block+=$'  source <(npm completion 2>/dev/null) || true\n'
-    block+=$'fi\n'
+    append_line block ""
+    append_line block "# npm completion (if available)"
+    append_line block "if command -v npm >/dev/null 2>&1; then"
+    append_line block "  source <(npm completion 2>/dev/null) || true"
+    append_line block "fi"
   fi
 
   if [[ -z "${block}" ]]; then
