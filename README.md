@@ -30,9 +30,23 @@ ConfigHelper is designed to provide one-click setup for commonly used tools on b
 - Modules:
   - `scripts/linux/toolsets.sh` (Phase 1 toolset installation)
   - `scripts/linux/configure_env.sh` (Phase 2 environment setup)
+  - `scripts/linux/verify.sh` (post-setup verification)
 
 Run:
 
 ```bash
 bash scripts/linux/main.sh
+```
+
+Non-interactive examples:
+
+```bash
+# Install Python+Node, run configure, then verify
+bash scripts/linux/main.sh --toolset python-node --verify --yes
+
+# Only run Phase 2 configure + verify
+bash scripts/linux/main.sh --skip-install --verify
+
+# Show usage
+bash scripts/linux/main.sh --help
 ```
