@@ -171,19 +171,29 @@ build_required_tools() {
   IFS=',' read -r -a toolset_items <<< "${TOOLSETS}"
   REQUIRED_TOOLS=()
   local dedup=","
+  local has_none="false"
+  local has_non_none="false"
 
   for raw in "${toolset_items[@]}"; do
     local normalized
     normalized="$(echo "${raw}" | tr -d '[:space:]')"
     [[ -z "${normalized}" ]] && continue
 
-    if [[ "${normalized}" == "none" && "${#toolset_items[@]}" -gt 1 ]]; then
-      echo "Error: toolset 'none' cannot be combined with others."
-      exit 1
+    # Track semantic presence instead of raw array length because trailing commas
+    # can introduce empty elements (e.g. "none," or "none,,").
+    if [[ "${normalized}" == "none" ]]; then
+      has_none="true"
+    else
+      has_non_none="true"
     fi
 
     add_required_tools_for_toolset "${normalized}"
   done
+
+  if [[ "${has_none}" == "true" && "${has_non_none}" == "true" ]]; then
+    echo "Error: toolset 'none' cannot be combined with others."
+    exit 1
+  fi
 
   UNIQUE_REQUIRED_TOOLS=()
   local cmd

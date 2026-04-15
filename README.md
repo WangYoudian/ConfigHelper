@@ -59,3 +59,9 @@ bash scripts/linux/main.sh --skip-install --verify
 # Show usage
 bash scripts/linux/main.sh --help
 ```
+
+Verify input regression test:
+
+```bash
+bash scripts/linux/test-verify-inputs.sh
+```
