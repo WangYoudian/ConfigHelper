@@ -71,7 +71,11 @@ install_python_node() {
 
   case "${pm}" in
     apt)
-      install_packages "${pm}" python3 python3-pip nodejs npm
+      install_packages "${pm}" python3 python3-pip nodejs
+      if ! command -v npm >/dev/null 2>&1; then
+        # On Ubuntu repo nodejs may not bundle npm; install npm only if still missing.
+        install_packages "${pm}" npm
+      fi
       ;;
     dnf|yum)
       install_packages "${pm}" python3 python3-pip nodejs npm
