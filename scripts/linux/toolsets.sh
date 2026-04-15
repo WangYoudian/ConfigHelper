@@ -152,3 +152,58 @@ install_toolset() {
       ;;
   esac
 }
+
+is_valid_toolset() {
+  local toolset="$1"
+  case "${toolset}" in
+    python-node|java|go-k8s-docker|none)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+install_toolsets() {
+  local toolsets_csv="$1"
+  local seen=","
+  local raw_item normalized
+  IFS=',' read -r -a items <<< "${toolsets_csv}"
+
+  if [[ "${#items[@]}" -eq 0 ]]; then
+    echo "No toolset specified."
+    return 1
+  fi
+
+  for raw_item in "${items[@]}"; do
+    normalized="$(echo "${raw_item}" | tr -d '[:space:]')"
+    [[ -z "${normalized}" ]] && continue
+
+    if ! is_valid_toolset "${normalized}"; then
+      echo "Unknown toolset: ${normalized}"
+      return 1
+    fi
+
+    if [[ "${seen}" == *",${normalized},"* ]]; then
+      continue
+    fi
+    seen+="${normalized},"
+  done
+
+  if [[ "${seen}" == *,none,* && "${seen}" != ",none," ]]; then
+    echo "Toolset 'none' cannot be combined with other toolsets."
+    return 1
+  fi
+
+  for raw_item in "${items[@]}"; do
+    normalized="$(echo "${raw_item}" | tr -d '[:space:]')"
+    [[ -z "${normalized}" ]] && continue
+    if [[ "${seen}" != *",${normalized},"* ]]; then
+      continue
+    fi
+    # Remove from seen marker after first execution to preserve order and avoid duplicates.
+    seen="${seen/,${normalized},/,}"
+    install_toolset "${normalized}"
+  done
+}

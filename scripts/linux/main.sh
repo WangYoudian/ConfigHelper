@@ -10,6 +10,8 @@ source "${SCRIPT_DIR}/configure_env.sh"
 TOOLSET=""
 SKIP_INSTALL="false"
 RUN_VERIFY="false"
+VERIFY_JSON="false"
+SELECTED_TOOLSETS="none"
 
 print_header() {
   echo "========================================="
@@ -34,24 +36,40 @@ Usage:
   bash scripts/linux/main.sh [options]
 
 Options:
-  --toolset <name>    Non-interactive toolset selection.
+  --toolset <name>    Non-interactive toolset selection (repeatable or comma-separated).
                       Values: python-node | java | go-k8s-docker | none
   --skip-install      Skip Phase 1 and only run configuration.
   --verify            Run verify checks after configuration.
+  --json              Output verify result in JSON format (requires --verify).
   --yes               Assume "yes" for install confirmation prompts.
   -h, --help          Show this help message.
 EOF
+}
+
+append_toolset_arg() {
+  local raw="$1"
+  IFS=',' read -r -a parsed <<< "${raw}"
+  local item
+  for item in "${parsed[@]}"; do
+    item="$(echo "${item}" | tr -d '[:space:]')"
+    [[ -z "${item}" ]] && continue
+    if [[ -z "${TOOLSET}" ]]; then
+      TOOLSET="${item}"
+    else
+      TOOLSET="${TOOLSET},${item}"
+    fi
+  done
 }
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --toolset)
-        TOOLSET="${2:-}"
-        if [[ -z "${TOOLSET}" ]]; then
+        if [[ -z "${2:-}" ]]; then
           echo "Error: --toolset requires a value."
           exit 1
         fi
+        append_toolset_arg "${2}"
         shift 2
         ;;
       --skip-install)
@@ -60,6 +78,10 @@ parse_args() {
         ;;
       --verify)
         RUN_VERIFY="true"
+        shift
+        ;;
+      --json)
+        VERIFY_JSON="true"
         shift
         ;;
       --yes)
@@ -77,6 +99,11 @@ parse_args() {
         ;;
     esac
   done
+
+  if [[ "${VERIFY_JSON}" == "true" && "${RUN_VERIFY}" != "true" ]]; then
+    echo "Error: --json requires --verify."
+    exit 1
+  fi
 }
 
 run_phase_1_interactive() {
@@ -86,15 +113,19 @@ run_phase_1_interactive() {
     case "${choice}" in
       1)
         install_toolset "python-node"
+        SELECTED_TOOLSETS="python-node"
         ;;
       2)
         install_toolset "java"
+        SELECTED_TOOLSETS="java"
         ;;
       3)
         install_toolset "go-k8s-docker"
+        SELECTED_TOOLSETS="go-k8s-docker"
         ;;
       4)
         install_toolset "none"
+        SELECTED_TOOLSETS="none"
         ;;
       0)
         echo "Bye."
@@ -112,15 +143,24 @@ run_phase_1_interactive() {
 run_phase_1() {
   if [[ "${SKIP_INSTALL}" == "true" ]]; then
     echo "Skipping Phase 1 installation by flag."
+    if [[ -n "${TOOLSET}" ]]; then
+      SELECTED_TOOLSETS="${TOOLSET}"
+    else
+      SELECTED_TOOLSETS="none"
+    fi
     return 0
   fi
 
   if [[ -n "${TOOLSET}" ]]; then
-    install_toolset "${TOOLSET}"
+    install_toolsets "${TOOLSET}"
+    SELECTED_TOOLSETS="${TOOLSET}"
     return 0
   fi
 
   run_phase_1_interactive
+  if [[ -z "${SELECTED_TOOLSETS}" ]]; then
+    SELECTED_TOOLSETS="none"
+  fi
 }
 
 run_phase_2() {
@@ -129,7 +169,11 @@ run_phase_2() {
 
 run_verify() {
   if [[ "${RUN_VERIFY}" == "true" ]]; then
-    bash "${SCRIPT_DIR}/verify.sh"
+    local verify_args=("--toolsets" "${SELECTED_TOOLSETS}")
+    if [[ "${VERIFY_JSON}" == "true" ]]; then
+      verify_args+=("--json")
+    fi
+    bash "${SCRIPT_DIR}/verify.sh" "${verify_args[@]}"
   fi
 }
 

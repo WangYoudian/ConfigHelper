@@ -41,7 +41,16 @@ bash scripts/linux/main.sh
 Non-interactive examples:
 
 ```bash
-# Install Python+Node, run configure, then verify
+# Install multiple toolsets in one run, then verify
+bash scripts/linux/main.sh --toolset python-node,java --verify --yes
+
+# Equivalent multi-select form (repeatable --toolset)
+bash scripts/linux/main.sh --toolset python-node --toolset go-k8s-docker --verify --yes
+
+# Install Python+Node, output machine-readable verify JSON
+bash scripts/linux/main.sh --toolset python-node --verify --json --yes
+
+# Install Python+Node, run configure, then verify (text output)
 bash scripts/linux/main.sh --toolset python-node --verify --yes
 
 # Only run Phase 2 configure + verify
